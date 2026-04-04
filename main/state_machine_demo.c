@@ -3,6 +3,7 @@
 #include "freertos/task.h"
 #include "freertos/queue.h"
 #include "driver/gpio.h"
+#include"state_machine_demo.h"
 
 // -----------------------------
 // GPIO pins for state machine
