@@ -1,3 +1,13 @@
+/**
+ * state_machine_demo.c - A demo of a simple state machine driven by GPIO interrupts on an ESP32 using FreeRTOS.
+ * This demo sets up two GPIO pins with interrupt handlers that send events to a state machine task     
+ *  The state machine has three states: IDLE, ACTIVE, and ERROR.    
+ * - In IDLE, a falling edge on PIN_X transitions to ACTIVE.           
+ * - In ACTIVE, a falling edge on PIN_Y transitions to ERROR.    
+ * - In ERROR, a falling edge on PIN_X transitions back to IDLE.        
+ *                      
+ */
+
 #include <stdio.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -8,7 +18,7 @@
 // -----------------------------
 // GPIO pins for state machine
 // -----------------------------
-#define SM_PIN1   25  // Rising edge triggers EVENT_PIN1
+#define SM_PIN1   25   // Rising edge triggers EVENT_PIN1
 #define SM_PIN2   26   // Rising edge triggers EVENT_PIN2
 #define DEBOUNCE_THRESHOLD 8000000 // ~50ms, UPDATE AS NEEDED
 
@@ -34,9 +44,16 @@ typedef enum {
 // -----------------------------
 static QueueHandle_t sm_event_queue = NULL;
 
-// -----------------------------
-// ISR for PIN1
-// -----------------------------
+/**
+ * ISR for PIN1
+ * This ISR is triggered on a falling edge of PIN1. It implements a debounce mechanism by   checking the time since the last interrupt and only sending an event to the state machine if enough time has passed.    
+ * The event is sent to the state machine task via a FreeRTOS queue, and if the event causes a higher priority task to unblock, it yields to allow that task to run immediately.    
+ * Note: The debounce threshold should be adjusted based on the expected noise and bounce characteristics of the input signal on PIN1, and the xthal_get_ccount() function is used to get the current cycle count for timing purposes.  
+ * The actual state machine logic that processes the events sent by this ISR should be implemented in the sm_task function, which will handle the transitions between states based on the received events.      
+ * Make sure to configure the GPIO pin correctly with pull-up or pull-down resistors as needed, and to set up the interrupt type to trigger on the appropriate edge (e.g., falling edge) for this ISR to work correctly.    
+ * The sm_event_queue should be created before the ISR is triggered, and the state machine task should be running to process the events sent by this ISR for the demo to function as intended.  
+ * 
+ */
 static void IRAM_ATTR sm_pin1_isr(void *arg)
 {
     static uint32_t last = 0;
@@ -56,9 +73,17 @@ static void IRAM_ATTR sm_pin1_isr(void *arg)
 }
 
 
-// -----------------------------
-// ISR for PIN2
-// -----------------------------
+/**
+ * ISR for PIN2
+ * This ISR is triggered on a falling edge of PIN2 and implements a similar debounce mechanism as       
+ *  the PIN1 ISR. It sends an event to the state machine task via a FreeRTOS queue, allowing the state machine to process the event and transition between states accordingly.    
+ * Note: The debounce threshold should be adjusted based on the expected noise and bounce characteristics of the input signal on PIN2, and the xthal_get_ccount() function is used to get the current cycle count for timing purposes.  
+ * The actual state machine logic that processes the events sent by this ISR should be implemented in the sm_task function, which will handle the transitions between states based on the received events.      
+ * Make sure to configure the GPIO pin correctly with pull-up or pull-down resistors as needed  
+ * and to set up the interrupt type to trigger on the appropriate edge (e.g., falling edge) for this ISR to work correctly.    
+ * The sm_event_queue should be created before the ISR is triggered, and the state machine task should be running to process the events sent by this ISR for the demo to function as intended.  
+ * 
+ */
 static void IRAM_ATTR sm_pin2_isr(void *arg)
 {   
     static uint32_t last = 0;
@@ -78,9 +103,19 @@ static void IRAM_ATTR sm_pin2_isr(void *arg)
     }
 }
 
-// -----------------------------
-// State machine task
-// -----------------------------
+/**
+ * State machine task
+ * This FreeRTOS task implements the state machine logic that processes events sent by the GPIO ISRs. It waits for events on the sm_event_queue and transitions between states based on the received events.    
+ * The state machine has three states: IDLE, ACTIVE, and ERROR.     
+ * - In IDLE, a falling edge on PIN1 (EVENT_PIN1) transitions to ACTIVE.           
+ * - In ACTIVE, a falling edge on PIN2 (EVENT_PIN2) transitions to ERROR.   
+ * - In ERROR, a falling edge on PIN1 (EVENT_PIN1) transitions back to IDLE.        
+ * The task runs indefinitely, processing events as they come in and printing the current state and transitions to the console for demonstration purposes.    
+ * Note: The sm_event_queue should be created before this task is started, and the GPIO pins should be configured with the appropriate interrupt handlers for this state machine to function correctly.    
+ * Make sure to adjust the GPIO pin numbers and debounce thresholds as needed for your specific hardware setup and requirements.    
+ * The state machine logic can be expanded or modified to include additional states, events, and transitions    as needed for your application, but this basic structure provides a starting point for implementing a simple state machine driven by GPIO interrupts on an ESP32 using FreeRTOS.
+ * 
+ */
 static void sm_task(void *arg)
 {
     sm_state_t state = SM_STATE_IDLE;
@@ -133,9 +168,16 @@ static void sm_task(void *arg)
     }
 }
 
-// -----------------------------
-// Public function to start demo
-// -----------------------------
+/**
+ * Start the state machine demo
+ * This function initializes the state machine demo by creating the event queue, configuring the GPIO pins with the appropriate interrupt handlers, and starting the state machine task.
+ *  It sets up the necessary infrastructure for the state machine to function correctly, allowing it to respond to GPIO events and transition between states as defined in the sm_task function.    
+ * Note: This function should be called from the main application to start the state machine demo, and it assumes that the FreeRTOS scheduler is already running.    
+ * Make sure to adjust the GPIO pin numbers and debounce thresholds as needed for your specific hardware setup and requirements.    
+ * The state machine logic can be expanded or modified to include additional states, events, and transitions    
+ * as needed for your application, but this basic structure provides a starting point for implementing a simple state machine driven by GPIO interrupts on an ESP32 using FreeRTOS. 
+ * 
+ */
 void start_state_machine_demo(void)
 {
     // Create event queue
